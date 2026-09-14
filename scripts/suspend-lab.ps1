@@ -300,9 +300,9 @@ if (-not $WhatIfPreference) {
     Write-Host '    - MongoDB PVC managed disk (retains demo data)' -ForegroundColor Gray
     Write-Host '    - Log Analytics retention, tapering as data ages out' -ForegroundColor Gray
     Write-Host "`n  Resume with:" -ForegroundColor White
-    Write-Host "    ./scripts/resume-lab.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
+    Write-Host "    pwsh ./scripts/resume-lab.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
     Write-Host "`n  Tear down completely with:" -ForegroundColor White
-    Write-Host "    ./scripts/destroy.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
+    Write-Host "    pwsh ./scripts/destroy.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
 }
 
 Write-Host ''
