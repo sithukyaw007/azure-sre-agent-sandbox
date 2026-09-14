@@ -276,7 +276,7 @@ spec:
               cpu: "100m"
             limits:
               memory: "512Mi"
-              cpu: "250m"
+              cpu: "200m"
           env:
             - name: ORDER_QUEUE_HOSTNAME
               value: "rabbitmq"
