@@ -10,7 +10,7 @@
 
 .PARAMETER Location
     Azure region for deployment. Must be an SRE Agent supported region.
-    Valid values: eastus2, swedencentral, australiaeast
+    Valid values: eastus2, swedencentral, australiaeast, southeastasia
 
 .PARAMETER WorkloadName
     Name prefix for resources. Default: srelab
@@ -38,7 +38,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('eastus2', 'swedencentral', 'australiaeast')]
+    [ValidateSet('eastus2', 'swedencentral', 'australiaeast', 'southeastasia')]
     [string]$Location = 'eastus2',
 
     [Parameter()]

@@ -119,8 +119,45 @@ See [docs/SRE-AGENT-SETUP.md](docs/SRE-AGENT-SETUP.md) for detailed instructions
 |--------------|------------|--------------|
 | Default deployment | ~$22-28 | ~$650-850 |
 | + SRE Agent | ~$32-38 | ~$950-1,150 |
+| **Suspended between demos** | **~$0.60** | **~$18** |
 
 See [docs/COSTS.md](docs/COSTS.md) for detailed breakdown and optimization tips.
+
+### Suspending between demos
+
+Rather than destroying and redeploying, suspend the lab. This preserves the AKS
+cluster, the deployed application, PVC data, and all telemetry history, while cutting
+cost by roughly 98%.
+
+```powershell
+# Wind down (~5 min)
+.\scripts\suspend-lab.ps1 -ResourceGroupName "rg-srelab-swedencentral"
+
+# Bring back up (~10 min)
+.\scripts\resume-lab.ps1 -ResourceGroupName "rg-srelab-swedencentral"
+```
+
+Both scripts are idempotent and support `-WhatIf`. Preview before committing:
+
+```powershell
+.\scripts\suspend-lab.ps1 -ResourceGroupName "rg-srelab-swedencentral" -WhatIf
+```
+
+`suspend-lab.ps1` stops the AKS cluster, deletes the SRE Agent and Managed Grafana,
+and disables the one-minute alert rules. The agent and Grafana are *deleted* rather
+than paused because neither has a pause state that stops billing — per Microsoft's
+[SRE Agent billing guidance](https://learn.microsoft.com/azure/sre-agent/pricing-billing),
+always-on flow bills at 4 AAUs per agent-hour and "continues from agent creation until
+the agent is **deleted**"; stopping an agent halts only active flow. Both are fully
+reproducible from `sre-config/` and Bicep, which `resume-lab.ps1` handles.
+
+Use `-KeepSreAgent`, `-KeepGrafana`, or `-KeepAlerts` to suspend less aggressively.
+
+> **After resuming**: the store front's public IP is reassigned, so re-read it with
+> `kubectl get svc store-front -n pets`. Container Insights telemetry takes about
+> 5 minutes to repopulate.
+
+For permanent removal, use `destroy.ps1` instead.
 
 ### Observability
 
@@ -166,6 +203,8 @@ deployment is considered ready.
 | `.\scripts\run-demo-scenario.ps1 -ResourceGroupName <rg> -Scenario oom-killed` | Run, restore, and report one scenario lifecycle |
 | `.\scripts\run-demo-scenario.ps1 -ResourceGroupName <rg> -Scenario crash-loop` | Run, restore, and report another scenario lifecycle |
 | `.\scripts\run-demo-scenario.ps1 -ResourceGroupName <rg> -Scenario image-pull-backoff` | Run, restore, and report yet another scenario lifecycle |
+| `.\scripts\suspend-lab.ps1 -ResourceGroupName <rg>` | Suspend the lab to ~$0.60/day between demos |
+| `.\scripts\resume-lab.ps1 -ResourceGroupName <rg>` | Restore a suspended lab (~10 min) |
 | `.\scripts\destroy.ps1 -ResourceGroupName <rg>` | Tear down all infrastructure |
 
 **Deploy script parameters:**

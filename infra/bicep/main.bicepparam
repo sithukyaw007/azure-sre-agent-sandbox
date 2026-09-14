@@ -21,6 +21,9 @@ param deploySreAgent = true
 param deployActionGroup = true
 
 // AKS Configuration - cost-optimized for demo
+// NOTE: some subscriptions/offers restrict general-purpose SKUs per region
+// (reported as NotAvailableForSubscription). If D2s_v5 is unavailable in your
+// target region, the v7 equivalents are also accepted by main.bicep.
 param systemNodeVmSize = 'Standard_D2s_v5'
 param userNodeVmSize = 'Standard_D2s_v5'
 param systemNodeCount = 2

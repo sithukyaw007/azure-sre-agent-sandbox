@@ -17,11 +17,12 @@ targetScope = 'subscription'
 @maxLength(10)
 param workloadName string = 'srelab'
 
-@description('Azure region for deployment. Must be a region supporting SRE Agent (East US 2, Sweden Central, Australia East)')
+@description('Azure region for deployment. Must be a region supporting SRE Agent (East US 2, Sweden Central, Australia East, Southeast Asia)')
 @allowed([
   'eastus2'
   'swedencentral'
   'australiaeast'
+  'southeastasia'
 ])
 param location string = 'eastus2'
 
@@ -57,6 +58,10 @@ param kubernetesVersion string = ''
   'Standard_D4s_v5'
   'Standard_D2as_v5'
   'Standard_D4as_v5'
+  'Standard_D2s_v7'
+  'Standard_D4s_v7'
+  'Standard_D2ds_v7'
+  'Standard_D4ds_v7'
 ])
 param systemNodeVmSize string = 'Standard_D2s_v5'
 
@@ -66,6 +71,10 @@ param systemNodeVmSize string = 'Standard_D2s_v5'
   'Standard_D4s_v5'
   'Standard_D2as_v5'
   'Standard_D4as_v5'
+  'Standard_D2s_v7'
+  'Standard_D4s_v7'
+  'Standard_D2ds_v7'
+  'Standard_D4ds_v7'
 ])
 param userNodeVmSize string = 'Standard_D2s_v5'
 
@@ -239,7 +248,6 @@ module defaultActionGroup 'modules/action-group.bicep' = if (deployActionGroup) 
   name: 'deploy-default-action-group'
   params: {
     name: 'ag-${workloadName}'
-    location: location
     tags: tags
     shortName: actionGroupShortName
     webhookServiceUri: incidentWebhookServiceUri

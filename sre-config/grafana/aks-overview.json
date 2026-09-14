@@ -1,0 +1,350 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "sre-aks-overview",
+    "title": "SRE Lab - AKS Overview",
+    "description": "AKS health overview for the SRE Agent demo lab. Surfaces pod health, restarts, and resource pressure in the pets namespace so breakable scenarios are visible immediately.",
+    "tags": ["sre-lab", "aks", "pets"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 0,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "namespace",
+          "label": "Namespace",
+          "type": "constant",
+          "hide": 2,
+          "query": "pets",
+          "current": {
+            "text": "pets",
+            "value": "pets"
+          }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Pods Running",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Running\"})",
+            "instant": true,
+            "legendFormat": "Running"
+          }
+        ],
+        "options": {
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Pods NOT Running",
+        "description": "Any non-Running pod. This is the fastest signal that a breakable scenario has been applied.",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum(kube_pod_status_phase{namespace=\"$namespace\", phase!=\"Running\"})",
+            "instant": true,
+            "legendFormat": "Not Running"
+          }
+        ],
+        "options": {
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 1 },
+                { "color": "red", "value": 3 }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Nodes Ready",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum(kube_node_status_condition{condition=\"Ready\", status=\"true\"})",
+            "instant": true,
+            "legendFormat": "Ready"
+          }
+        ],
+        "options": {
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+          "colorMode": "background",
+          "graphMode": "none",
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Container Restarts (1h)",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[1h]))",
+            "instant": true,
+            "legendFormat": "Restarts"
+          }
+        ],
+        "options": {
+          "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+          "colorMode": "background",
+          "graphMode": "area",
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "Pod Phase Over Time",
+        "description": "Pending / Failed / Unknown rising here maps directly to the pending-pods, crash-loop and image-pull scenarios.",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (phase) (kube_pod_status_phase{namespace=\"$namespace\"})",
+            "legendFormat": "{{phase}}"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "stacking": { "mode": "none", "group": "A" }
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "Container Restarts by Pod (5m)",
+        "description": "Spikes indicate CrashLoopBackOff or OOMKilled.",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[5m]))",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "bars",
+              "lineWidth": 1,
+              "fillOpacity": 60
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "title": "CPU Usage by Pod (cores)",
+        "description": "Use with the high-cpu scenario.",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}[5m]))",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 8,
+        "type": "timeseries",
+        "title": "Memory Working Set by Pod",
+        "description": "Use with the oom-killed scenario - watch a pod climb toward its limit before termination.",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\", container!=\"\", container!=\"POD\"})",
+            "legendFormat": "{{pod}}"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": []
+        }
+      },
+      {
+        "id": 9,
+        "type": "timeseries",
+        "title": "Deployment Replicas: Available vs Desired",
+        "description": "A gap between desired and available is the signature of probe-failure, missing-config and image-pull scenarios.",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+        "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"$namespace\"})",
+            "legendFormat": "{{deployment}} available"
+          },
+          {
+            "refId": "B",
+            "datasource": { "type": "prometheus", "uid": "PROMETHEUS_UID" },
+            "expr": "sum by (deployment) (kube_deployment_spec_replicas{namespace=\"$namespace\"})",
+            "legendFormat": "{{deployment}} desired"
+          }
+        ],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 0
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byRegexp", "options": ".*desired.*" },
+              "properties": [
+                { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "folderId": 0,
+  "overwrite": true,
+  "message": "Provisioned by scripts/configure-grafana.ps1 for the Azure SRE Agent demo lab"
+}

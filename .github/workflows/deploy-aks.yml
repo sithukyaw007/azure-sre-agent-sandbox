@@ -1,0 +1,144 @@
+name: Deploy AKS manifests
+
+# GitOps loop for the SRE Agent demo.
+#
+#   pull_request  -> validate only (server-side dry-run, no cluster changes)
+#   push to main  -> apply to the cluster
+#
+# This is what makes an agent-authored pull request meaningful: the agent proposes
+# a change, a human approves the PR, and only the merge mutates the cluster. No
+# direct kubectl from the agent, and the repo stays the source of truth.
+#
+# Auth uses OIDC federated credentials - no secrets are stored in GitHub.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'k8s/base/**'
+      - '.github/workflows/deploy-aks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'k8s/base/**'
+      - '.github/workflows/deploy-aks.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write      # required for OIDC
+  contents: read
+  pull-requests: write # to comment the validation result on the PR
+
+env:
+  AZURE_CLIENT_ID: 7f9b5d98-6091-4059-863f-400b4c17de57
+  AZURE_TENANT_ID: 19ffb373-4547-4ebd-b7a8-2b4c6da14132
+  AZURE_SUBSCRIPTION_ID: e5b30712-e866-49c1-8ebe-95f569524df0
+  RESOURCE_GROUP: rg-srelab-swedencentral
+  CLUSTER_NAME: aks-srelab
+  NAMESPACE: pets
+
+jobs:
+  validate:
+    name: Validate manifests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CLUSTER_NAME" \
+            --overwrite-existing
+
+      - name: Server-side dry run
+        id: dryrun
+        run: |
+          echo "Validating against the live API server (no changes applied)..."
+          kubectl apply -f k8s/base/application.yaml --dry-run=server 2>&1 | tee /tmp/dryrun.txt
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Show resource limits being proposed
+        run: |
+          echo "### Proposed container resources" >> "$GITHUB_STEP_SUMMARY"
+          echo '```yaml' >> "$GITHUB_STEP_SUMMARY"
+          grep -E "name:|memory:|cpu:" k8s/base/application.yaml \
+            | grep -B1 -A2 -E "memory|cpu" | head -40 >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment validation result on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let out = '';
+            try { out = fs.readFileSync('/tmp/dryrun.txt', 'utf8'); } catch (e) { out = '(no output)'; }
+            const body = [
+              '### Manifest validation passed',
+              '',
+              'Server-side dry run against `aks-srelab` succeeded. **No cluster changes were made.**',
+              'Merging this PR will apply these manifests to the `pets` namespace.',
+              '',
+              '<details><summary>Dry-run output</summary>',
+              '',
+              '```',
+              out.trim().slice(0, 60000),
+              '```',
+              '</details>'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  deploy:
+    name: Deploy to AKS
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CLUSTER_NAME" \
+            --overwrite-existing
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -f k8s/base/application.yaml
+
+      - name: Wait for rollout
+        run: |
+          for d in $(kubectl get deployment -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- $d"
+            kubectl rollout status "deployment/$d" -n "$NAMESPACE" --timeout=300s
+          done
+
+      - name: Report cluster state
+        run: |
+          {
+            echo "### Deployed to \`$CLUSTER_NAME\`"
+            echo ''
+            echo '```'
+            kubectl get pods -n "$NAMESPACE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

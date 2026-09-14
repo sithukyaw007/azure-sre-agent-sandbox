@@ -8,9 +8,6 @@
 @description('Action Group name')
 param name string
 
-@description('Azure region for deployment')
-param location string
-
 @description('Tags to apply to resources')
 param tags object
 
@@ -24,9 +21,12 @@ param webhookServiceUri string = ''
 
 var hasWebhookReceiver = !empty(webhookServiceUri)
 
+// Action Groups are a global resource type. They are only offered in a fixed set
+// of regions (plus 'global'), so pinning to 'global' keeps this module valid in
+// every deployment region, including ones like southeastasia.
 resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   name: name
-  location: location
+  location: 'global'
   tags: tags
   properties: {
     enabled: true

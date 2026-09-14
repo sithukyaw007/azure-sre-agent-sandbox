@@ -30,6 +30,9 @@ azureconfig.json
 !settings.json
 !extensions.json
 !**/bicepconfig.json
+# Grafana dashboard definitions are deployment assets, not build output.
+# configure-grafana.ps1 fails without this file.
+!sre-config/grafana/*.json
 
 # Bicep lock files
 .bicep/
