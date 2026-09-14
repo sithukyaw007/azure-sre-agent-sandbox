@@ -137,10 +137,27 @@ cost by roughly 98%.
 .\scripts\resume-lab.ps1 -ResourceGroupName "rg-srelab-swedencentral"
 ```
 
+> **macOS / Linux**: these are PowerShell scripts, so invoke them through `pwsh`.
+> Running `./scripts/suspend-lab.ps1` from bash or zsh fails with
+> `permission denied`, because `.ps1` files are not executable shell scripts.
+> Do **not** prefix with `sudo` — it does not help and is not needed.
+>
+> ```bash
+> pwsh ./scripts/suspend-lab.ps1 -ResourceGroupName rg-srelab-swedencentral
+> pwsh ./scripts/resume-lab.ps1  -ResourceGroupName rg-srelab-swedencentral
+> ```
+>
+> The same applies to every `.ps1` in `scripts/`.
+
 Both scripts are idempotent and support `-WhatIf`. Preview before committing:
 
 ```powershell
 .\scripts\suspend-lab.ps1 -ResourceGroupName "rg-srelab-swedencentral" -WhatIf
+```
+
+```bash
+# macOS / Linux
+pwsh ./scripts/suspend-lab.ps1 -ResourceGroupName rg-srelab-swedencentral -WhatIf
 ```
 
 `suspend-lab.ps1` stops the AKS cluster, deletes the SRE Agent and Managed Grafana,

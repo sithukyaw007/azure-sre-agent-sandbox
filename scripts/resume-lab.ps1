@@ -457,9 +457,9 @@ Write-Host "`n  Reminders:" -ForegroundColor White
 Write-Host '    - Container Insights telemetry takes ~5 minutes to repopulate.' -ForegroundColor Gray
 Write-Host '    - Re-authorize the Outlook connector in the portal for email delivery.' -ForegroundColor Gray
 Write-Host "`n  Verify with:" -ForegroundColor White
-Write-Host "    ./scripts/validate-deployment.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
+Write-Host "    pwsh ./scripts/validate-deployment.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
 Write-Host "`n  Suspend again with:" -ForegroundColor White
-Write-Host "    ./scripts/suspend-lab.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
+Write-Host "    pwsh ./scripts/suspend-lab.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
 Write-Host ''
 
 Restore-OriginalSubscription
