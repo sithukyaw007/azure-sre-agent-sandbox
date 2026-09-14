@@ -12,11 +12,11 @@ name: Deploy AKS manifests
 # Auth uses OIDC federated credentials - no secrets are stored in GitHub.
 
 on:
+  # No path filter on pull_request: 'Validate manifests' is a required status check,
+  # so it must report on every PR. A path-filtered required check never runs for PRs
+  # that touch other files, leaving them permanently blocked.
   pull_request:
     branches: [main]
-    paths:
-      - 'k8s/base/**'
-      - '.github/workflows/deploy-aks.yml'
   push:
     branches: [main]
     paths:
@@ -44,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed to diff against the base branch
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -74,7 +76,19 @@ jobs:
             | grep -B1 -A2 -E "memory|cpu" | head -40 >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Detect manifest changes
+        id: changed
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD \
+             | grep -qE '^k8s/base/'; then
+            echo "manifests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "manifests=false" >> "$GITHUB_OUTPUT"
+            echo "No manifest changes in this PR; validation is a no-op."
+          fi
+
       - name: Comment validation result on PR
+        if: steps.changed.outputs.manifests == 'true'
         uses: actions/github-script@v7
         with:
           script: |
