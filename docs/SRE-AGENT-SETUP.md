@@ -244,26 +244,12 @@ Kubernetes, automation, and runbook context. Connect the upstream
 `Azure-Samples/aks-store-demo` repository or your fork when application
 service-code RCA is required; the service source is not vendored here.
 
-### Microsoft Learn MCP (Optional)
+### Microsoft Learn MCP (Default Enabled)
 
-Microsoft Learn MCP is an independent, credential-free track. Enable it during
-the standard deployment:
+Microsoft Learn MCP is enabled automatically for the deployed SRE Agent. No
+extra deployment or configuration switch is required.
 
-```powershell
-.\scripts\deploy.ps1 `
-   -Location eastus2 `
-   -EnableMicrosoftLearnMcp
-```
-
-Or add it to an existing agent:
-
-```powershell
-.\scripts\configure-sre-agent.ps1 `
-   -ResourceGroupName "rg-srelab-eastus2" `
-   -EnableMicrosoftLearnMcp
-```
-
-Verify the optional track independently:
+Verify the connector independently:
 
 ```powershell
 .\scripts\verify-sre-agent-configuration.ps1 `
@@ -277,8 +263,8 @@ Microsoft Learn connector tool call and source links.
 
 The connector uses `https://learn.microsoft.com/api/mcp`, requires outbound
 HTTPS on port 443 to `learn.microsoft.com`, and requires no inbound access or
-customer credentials. Its setup failure is reported when enabled, but it never
-blocks the core configuration when omitted. Remove it independently with:
+customer credentials. Its setup failure is reported by the configuration
+script. Remove it independently with:
 
 ```powershell
 .\scripts\configure-sre-agent.ps1 `
@@ -288,8 +274,7 @@ blocks the core configuration when omitted. Remove it independently with:
 
 The removal is idempotent and exits without changing knowledge, agents, other
 connectors, response plans, or scheduled tasks. You can also delete it from
-**Builder** > **Connectors**. Omitting `-EnableMicrosoftLearnMcp` prevents
-creation but does not delete a connector that was enabled previously.
+**Builder** > **Connectors**.
 
 ### Azure Monitor Automation Profile
 

@@ -23,9 +23,6 @@
 .PARAMETER GitHubRepo
     Optional GitHub repository (owner/repo format) for code analysis agent.
 
-.PARAMETER EnableMicrosoftLearnMcp
-    Create the optional credential-free Microsoft Learn MCP connector.
-
 .PARAMETER RemoveMicrosoftLearnMcp
     Remove the Microsoft Learn MCP connector and exit without changing other configuration.
 
@@ -72,9 +69,6 @@ param(
     [switch]$SkipConnectors,
 
     [Parameter()]
-    [switch]$EnableMicrosoftLearnMcp,
-
-    [Parameter()]
     [switch]$RemoveMicrosoftLearnMcp,
 
     [Parameter()]
@@ -84,10 +78,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $configurationFailures = [System.Collections.Generic.List[string]]::new()
 $githubPreflightPassed = $false
-
-if ($EnableMicrosoftLearnMcp -and $RemoveMicrosoftLearnMcp) {
-    throw 'EnableMicrosoftLearnMcp and RemoveMicrosoftLearnMcp cannot be used together.'
-}
 
 function Add-ConfigurationFailure {
     param([Parameter(Mandatory)][string]$Component, [Parameter(Mandatory)][string]$Reason)
@@ -552,35 +542,30 @@ if (-not $SkipConnectors) {
         Write-Host "  🔗 GitHub connector — ⏭️  Skipped (no PAT provided)" -ForegroundColor Gray
     }
 
-    # 3c: Microsoft Learn MCP connector (opt-in)
-    if ($EnableMicrosoftLearnMcp) {
-        Write-Host "  📚 Creating Microsoft Learn MCP connector..." -ForegroundColor Gray
+    # 3c: Microsoft Learn MCP connector
+    Write-Host "  📚 Creating Microsoft Learn MCP connector..." -ForegroundColor Gray
 
-        $learnBody = @{
-            name       = "microsoft-learn"
-            properties = @{
-                dataConnectorType  = "StreamableHttp"
-                dataSource         = "microsoft-learn"
-                serverUri          = "https://learn.microsoft.com/api/mcp"
-                authenticationType = "None"
-            }
-        } | ConvertTo-Json -Depth 5 -Compress
-
-        $resp = Invoke-DataplaneApi `
-            -Method PUT `
-            -Path "/api/v2/extendedAgent/connectors/microsoft-learn" `
-            -Body $learnBody `
-            -Token $token
-
-        if ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 202) {
-            Write-Host "    ✅ Microsoft Learn MCP connector created" -ForegroundColor Green
+    $learnBody = @{
+        name       = "microsoft-learn"
+        properties = @{
+            dataConnectorType  = "StreamableHttp"
+            dataSource         = "microsoft-learn"
+            serverUri          = "https://learn.microsoft.com/api/mcp"
+            authenticationType = "None"
         }
-        else {
-            Add-ConfigurationFailure -Component 'Connector/microsoft-learn' -Reason "HTTP $($resp.StatusCode)"
-        }
+    } | ConvertTo-Json -Depth 5 -Compress
+
+    $resp = Invoke-DataplaneApi `
+        -Method PUT `
+        -Path "/api/v2/extendedAgent/connectors/microsoft-learn" `
+        -Body $learnBody `
+        -Token $token
+
+    if ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 202) {
+        Write-Host "    ✅ Microsoft Learn MCP connector created" -ForegroundColor Green
     }
     else {
-        Write-Host "  📚 Microsoft Learn MCP — ⏭️  Skipped (opt-in)" -ForegroundColor Gray
+        Add-ConfigurationFailure -Component 'Connector/microsoft-learn' -Reason "HTTP $($resp.StatusCode)"
     }
 
     # 3d: Outlook connector (always — enables SendOutlookEmail tool)

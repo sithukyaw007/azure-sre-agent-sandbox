@@ -139,7 +139,7 @@ if ($RequireMicrosoftLearnMcp) {
     }
 }
 else {
-    Write-Host '  ℹ️  Microsoft Learn MCP connector skipped (opt-in).' -ForegroundColor Gray
+    Write-Host '  ℹ️  Microsoft Learn MCP connector verification not requested.' -ForegroundColor Gray
 }
 
 $checks = @(

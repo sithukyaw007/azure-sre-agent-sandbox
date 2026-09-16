@@ -1,5 +1,5 @@
-# Microsoft Learn MCP Connector - opt-in external knowledge track
-# Created by configure-sre-agent.ps1 when -EnableMicrosoftLearnMcp is provided.
+# Microsoft Learn MCP Connector - default external knowledge track
+# Created automatically by configure-sre-agent.ps1.
 api_version: azuresre.ai/v2
 kind: DataConnector
 spec:

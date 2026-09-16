@@ -228,9 +228,10 @@ deployment is considered ready.
 - `-Location`: Azure region (`eastus2`, `swedencentral`, `australiaeast`) - Default: `eastus2`
 - `-WorkloadName`: Resource prefix - Default: `srelab`
 - `-SkipRbac`: Skip RBAC assignments if subscription policies block them
-- `-EnableMicrosoftLearnMcp`: Enable the credential-free Microsoft Learn MCP connector (disabled by default)
 - `-WhatIf`: Preview deployment without making changes
 - `-Yes`: Skip confirmation prompts (non-interactive mode)
+
+The credential-free Microsoft Learn MCP connector is enabled automatically.
 
 ### Kubernetes Commands (kubectl)
 

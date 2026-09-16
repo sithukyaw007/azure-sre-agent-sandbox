@@ -32,9 +32,6 @@ param(
     [switch]$SkipConnectors,
 
     [Parameter()]
-    [switch]$EnableMicrosoftLearnMcp,
-
-    [Parameter()]
     [switch]$RemoveMicrosoftLearnMcp,
 
     [Parameter()]

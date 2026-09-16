@@ -230,10 +230,10 @@ To add GitHub integration after initial setup:
     -GitHubRepo "owner/repo"
 ```
 
-### Microsoft Learn MCP Integration (Optional)
+### Microsoft Learn MCP Integration
 
-Enable the credential-free Microsoft Learn connector with
-`-EnableMicrosoftLearnMcp`, then verify it with:
+The credential-free Microsoft Learn connector is enabled automatically. Verify
+it with:
 
 ```powershell
 .\scripts\verify-sre-agent-configuration.ps1 `
