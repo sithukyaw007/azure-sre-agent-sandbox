@@ -78,10 +78,14 @@ jobs:
             echo "mode=client" >> "$GITHUB_OUTPUT"
             echo "Cluster unreachable (likely suspended) - falling back to client-side validation." \
               | tee /tmp/dryrun.txt
-            # --validate=false is required: client-side validation still tries to
-            # download the OpenAPI schema from the API server, which is unreachable.
-            kubectl apply -f k8s/base/application.yaml --dry-run=client --validate=false 2>&1 \
-              | tee -a /tmp/dryrun.txt
+            # kubectl --dry-run=client cannot be used here: it still performs API
+            # discovery against the server, which fails DNS on a stopped cluster.
+            # kubeconform validates against bundled JSON schemas, fully offline.
+            KC=v0.6.7
+            curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KC}/kubeconform-linux-amd64.tar.gz" \
+              | tar -xz -C /tmp kubeconform
+            /tmp/kubeconform -strict -summary -ignore-missing-schemas \
+              k8s/base/application.yaml 2>&1 | tee -a /tmp/dryrun.txt
             exit "${PIPESTATUS[0]}"
           fi
 
