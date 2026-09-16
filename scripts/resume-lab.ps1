@@ -93,13 +93,14 @@ if (-not $SubscriptionId) {
 }
 $subArgs = @('--subscription', $SubscriptionId)
 
-$aksName = "aks-$WorkloadName"
-$alertNames = @(
-    "alert-$WorkloadName-pod-restarts",
-    "alert-$WorkloadName-http-5xx",
-    "alert-$WorkloadName-pod-failures",
-    "alert-$WorkloadName-crashloop-oom"
-)
+# Resource names are discovered by resource TYPE inside the resource group rather
+# than derived from -WorkloadName. Deriving them meant a mismatched workload name
+# (for example the 'srelab' default against an 'rg-srelab2-*' lab) would refuse to
+# resume a healthy lab, and could pass the wrong workloadName to the Bicep
+# redeploy - which provisions an entire duplicate lab in a different resource
+# group. The effective workload name is derived from the discovered cluster.
+$aksName = $null
+$alertNames = @()
 $bicepFile = Join-Path $PSScriptRoot '..' 'infra' 'bicep' 'main.bicep'
 $bicepParams = Join-Path $PSScriptRoot '..' 'infra' 'bicep' 'main.bicepparam'
 
@@ -165,6 +166,37 @@ if (-not $Location) { $Location = $rgLocation }
 Write-Host "  Location:       $Location" -ForegroundColor White
 
 # ---------------------------------------------------------------------------
+# Discover resources by type, and derive the effective workload name from the
+# cluster so the Bicep redeploy targets THIS resource group.
+# ---------------------------------------------------------------------------
+$aksName = az resource list --resource-group $ResourceGroupName @subArgs `
+    --resource-type 'Microsoft.ContainerService/managedClusters' `
+    --query '[0].name' --output tsv 2>$null
+
+if ([string]::IsNullOrWhiteSpace($aksName)) {
+    throw "No AKS cluster found in '$ResourceGroupName'. If the lab was fully destroyed, run deploy.ps1 instead."
+}
+
+# Cluster names follow 'aks-<workloadName>'.
+if ($aksName -match '^aks-(.+)$') {
+    $effectiveWorkload = $Matches[1]
+    if ($effectiveWorkload -ne $WorkloadName) {
+        Write-Host "  Workload name:  $effectiveWorkload (discovered; overrides '$WorkloadName')" -ForegroundColor Yellow
+        $WorkloadName = $effectiveWorkload
+    }
+}
+
+$alertsRaw = az resource list --resource-group $ResourceGroupName @subArgs `
+    --resource-type 'Microsoft.Insights/scheduledQueryRules' `
+    --query '[].name' --output tsv 2>$null
+if (-not [string]::IsNullOrWhiteSpace($alertsRaw)) {
+    $alertNames = @($alertsRaw -split '\r?\n' | Where-Object { $_ })
+}
+
+Write-Host "  AKS cluster:    $aksName" -ForegroundColor White
+Write-Host "  Alert rules:    $($alertNames.Count)" -ForegroundColor White
+
+# ---------------------------------------------------------------------------
 # 1. Start AKS  (must precede the Bicep redeploy)
 # ---------------------------------------------------------------------------
 Write-Step '[1/6] Starting AKS cluster...'
@@ -173,7 +205,7 @@ $powerState = az aks show --resource-group $ResourceGroupName --name $aksName @s
     --query 'powerState.code' --output tsv 2>$null
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($powerState)) {
-    throw "AKS cluster '$aksName' was not found. If the lab was fully destroyed, run deploy.ps1 instead."
+    throw "Could not read power state for AKS cluster '$aksName'."
 }
 
 if ($powerState -eq 'Running') {

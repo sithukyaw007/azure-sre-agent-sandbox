@@ -99,15 +99,16 @@ if (-not $SubscriptionId) {
 }
 $subArgs = @('--subscription', $SubscriptionId)
 
-$aksName = "aks-$WorkloadName"
-$sreAgentName = "sre-$WorkloadName"
 $sreAgentApiVersion = '2025-05-01-preview'
-$alertNames = @(
-    "alert-$WorkloadName-pod-restarts",
-    "alert-$WorkloadName-http-5xx",
-    "alert-$WorkloadName-pod-failures",
-    "alert-$WorkloadName-crashloop-oom"
-)
+
+# Resource names are discovered by resource TYPE inside the resource group, not
+# derived from -WorkloadName. Deriving them silently skipped every resource when
+# the workload name did not match (for example -WorkloadName defaulting to
+# 'srelab' against an 'rg-srelab2-*' lab), and the script still reported success
+# while leaving the SRE Agent running and billing.
+$aksName = $null
+$sreAgentName = $null
+$alertNames = @()
 
 $actions = [System.Collections.Generic.List[string]]::new()
 $skipped = [System.Collections.Generic.List[string]]::new()
@@ -139,16 +140,47 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ---------------------------------------------------------------------------
+# Discover resources by type (not by name derived from -WorkloadName)
+# ---------------------------------------------------------------------------
+$aksName = az resource list --resource-group $ResourceGroupName @subArgs `
+    --resource-type 'Microsoft.ContainerService/managedClusters' `
+    --query '[0].name' --output tsv 2>$null
+$sreAgentName = az resource list --resource-group $ResourceGroupName @subArgs `
+    --query "[?type=='Microsoft.App/agents'].name | [0]" --output tsv 2>$null
+$alertsRaw = az resource list --resource-group $ResourceGroupName @subArgs `
+    --resource-type 'Microsoft.Insights/scheduledQueryRules' `
+    --query '[].name' --output tsv 2>$null
+$alertNames = @()
+if (-not [string]::IsNullOrWhiteSpace($alertsRaw)) {
+    $alertNames = @($alertsRaw -split '\r?\n' | Where-Object { $_ })
+}
+
+Write-Host "`n  Discovered in this resource group:" -ForegroundColor Gray
+Write-Host "    AKS cluster: $(if ($aksName) { $aksName } else { '(none)' })" -ForegroundColor Gray
+Write-Host "    SRE Agent:   $(if ($sreAgentName) { $sreAgentName } else { '(none)' })" -ForegroundColor Gray
+Write-Host "    Alert rules: $($alertNames.Count)" -ForegroundColor Gray
+
+if (-not $aksName -and -not $sreAgentName -and $alertNames.Count -eq 0) {
+    throw "No suspendable resources found in '$ResourceGroupName'. Check the resource group name."
+}
+
+# ---------------------------------------------------------------------------
 # 1. AKS - stop
 # ---------------------------------------------------------------------------
 Write-Step '[1/4] Stopping AKS cluster...'
 
-$powerState = az aks show --resource-group $ResourceGroupName --name $aksName @subArgs `
-    --query 'powerState.code' --output tsv 2>$null
+if (-not $aksName) {
+    $powerState = ''
+    $LASTEXITCODE = 1
+}
+else {
+    $powerState = az aks show --resource-group $ResourceGroupName --name $aksName @subArgs `
+        --query 'powerState.code' --output tsv 2>$null
+}
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($powerState)) {
-    $skipped.Add("AKS '$aksName' not found")
-    Write-Host "  AKS cluster '$aksName' not found - skipping." -ForegroundColor Gray
+    $skipped.Add("No AKS cluster found in $ResourceGroupName")
+    Write-Host "  No AKS cluster found in this resource group - skipping." -ForegroundColor Gray
 }
 elseif ($powerState -eq 'Stopped') {
     $skipped.Add('AKS already stopped')
@@ -178,7 +210,7 @@ if ($KeepSreAgent) {
 }
 else {
     $agentId = az resource list --resource-group $ResourceGroupName @subArgs `
-        --query "[?type=='Microsoft.App/agents' && name=='$sreAgentName'].id | [0]" --output tsv 2>$null
+        --query "[?type=='Microsoft.App/agents'].id | [0]" --output tsv 2>$null
 
     if ([string]::IsNullOrWhiteSpace($agentId)) {
         $skipped.Add('SRE Agent not present')
