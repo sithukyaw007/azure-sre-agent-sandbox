@@ -30,11 +30,11 @@ permissions:
   pull-requests: write # to comment the validation result on the PR
 
 env:
-  AZURE_CLIENT_ID: 7f9b5d98-6091-4059-863f-400b4c17de57
+  AZURE_CLIENT_ID: a84a2fe7-6712-40b8-8725-9aa2b7a072a3
   AZURE_TENANT_ID: 19ffb373-4547-4ebd-b7a8-2b4c6da14132
   AZURE_SUBSCRIPTION_ID: e5b30712-e866-49c1-8ebe-95f569524df0
-  RESOURCE_GROUP: rg-srelab-swedencentral
-  CLUSTER_NAME: aks-srelab
+  RESOURCE_GROUP: rg-srelab2-swedencentral
+  CLUSTER_NAME: aks-srelab2
   NAMESPACE: pets
 
 jobs:
@@ -61,12 +61,26 @@ jobs:
             --name "$CLUSTER_NAME" \
             --overwrite-existing
 
-      - name: Server-side dry run
+      - name: Validate manifests (server-side, falling back to client-side)
         id: dryrun
         run: |
-          echo "Validating against the live API server (no changes applied)..."
-          kubectl apply -f k8s/base/application.yaml --dry-run=server 2>&1 | tee /tmp/dryrun.txt
-          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          # The lab is stopped between demos to save cost. A stopped cluster has no
+          # reachable API server, so a server-side dry run cannot run. Because this
+          # job is a required status check, failing here would deadlock branch
+          # protection and block every PR while the lab is suspended. Fall back to
+          # client-side validation so the check still reports a real result.
+          if kubectl cluster-info --request-timeout=20s >/dev/null 2>&1; then
+            echo "mode=server" >> "$GITHUB_OUTPUT"
+            echo "Cluster reachable - validating against the live API server (no changes applied)."
+            kubectl apply -f k8s/base/application.yaml --dry-run=server 2>&1 | tee /tmp/dryrun.txt
+            exit "${PIPESTATUS[0]}"
+          else
+            echo "mode=client" >> "$GITHUB_OUTPUT"
+            echo "Cluster unreachable (likely suspended) - falling back to client-side validation." \
+              | tee /tmp/dryrun.txt
+            kubectl apply -f k8s/base/application.yaml --dry-run=client 2>&1 | tee -a /tmp/dryrun.txt
+            exit "${PIPESTATUS[0]}"
+          fi
 
       - name: Show resource limits being proposed
         run: |
@@ -90,6 +104,8 @@ jobs:
       - name: Comment validation result on PR
         if: steps.changed.outputs.manifests == 'true'
         uses: actions/github-script@v7
+        env:
+          DRYRUN_MODE: ${{ steps.dryrun.outputs.mode }}
         with:
           script: |
             const fs = require('fs');
@@ -98,7 +114,9 @@ jobs:
             const body = [
               '### Manifest validation passed',
               '',
-              'Server-side dry run against `aks-srelab` succeeded. **No cluster changes were made.**',
+              process.env.DRYRUN_MODE === 'server'
+                ? 'Server-side dry run against the live cluster succeeded. **No cluster changes were made.**'
+                : 'Cluster is unreachable (lab suspended), so manifests were validated **client-side**. Re-run this check once the lab is resumed for full server-side validation.',
               'Merging this PR will apply these manifests to the `pets` namespace.',
               '',
               '<details><summary>Dry-run output</summary>',
