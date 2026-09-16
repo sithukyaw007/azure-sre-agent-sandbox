@@ -78,7 +78,10 @@ jobs:
             echo "mode=client" >> "$GITHUB_OUTPUT"
             echo "Cluster unreachable (likely suspended) - falling back to client-side validation." \
               | tee /tmp/dryrun.txt
-            kubectl apply -f k8s/base/application.yaml --dry-run=client 2>&1 | tee -a /tmp/dryrun.txt
+            # --validate=false is required: client-side validation still tries to
+            # download the OpenAPI schema from the API server, which is unreachable.
+            kubectl apply -f k8s/base/application.yaml --dry-run=client --validate=false 2>&1 \
+              | tee -a /tmp/dryrun.txt
             exit "${PIPESTATUS[0]}"
           fi
 
