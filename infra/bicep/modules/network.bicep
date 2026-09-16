@@ -16,13 +16,13 @@ param location string
 param tags object
 
 @description('Address prefix for the VNet')
-param addressPrefix string = '10.0.0.0/16'
+param addressPrefix string = '10.20.0.0/16'
 
 @description('Address prefix for the AKS subnet')
-param aksSubnetPrefix string = '10.0.0.0/22'
+param aksSubnetPrefix string = '10.20.0.0/22'
 
 @description('Address prefix for services subnet (private endpoints)')
-param servicesSubnetPrefix string = '10.0.4.0/24'
+param servicesSubnetPrefix string = '10.20.4.0/24'
 
 // =============================================================================
 // RESOURCES

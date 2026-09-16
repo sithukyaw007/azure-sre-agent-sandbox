@@ -163,9 +163,9 @@ module network 'modules/network.bicep' = {
     vnetName: names.vnet
     location: location
     tags: tags
-    addressPrefix: '10.0.0.0/16'
-    aksSubnetPrefix: '10.0.0.0/22'
-    servicesSubnetPrefix: '10.0.4.0/24'
+    addressPrefix: '10.20.0.0/16'
+    aksSubnetPrefix: '10.20.0.0/22'
+    servicesSubnetPrefix: '10.20.4.0/24'
   }
 }
 
