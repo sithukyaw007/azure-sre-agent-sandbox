@@ -77,7 +77,15 @@ param(
     [switch]$SkipSreAgentConfig,
 
     [Parameter()]
-    [switch]$SkipAlerts
+    [switch]$SkipAlerts,
+
+    # Restore configuration normally wired up by hand in the portal. These are lost
+    # on every suspend, because suspend deletes the agent.
+    [Parameter()]
+    [string]$ConnectCodeRepoUrl = '',
+
+    [Parameter()]
+    [string]$ConnectLogAnalyticsWorkspace = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -314,13 +322,17 @@ elseif ($PSCmdlet.ShouldProcess('SRE Agent', 'Reload configuration')) {
     else {
         # Dataplane writes can return HTTP 403 while role assignments replicate on a
         # freshly created agent. Retry once after a pause before reporting failure.
+        $configureArgs = @{ ResourceGroupName = $ResourceGroupName }
+        if ($ConnectCodeRepoUrl) { $configureArgs.ConnectCodeRepoUrl = $ConnectCodeRepoUrl }
+        if ($ConnectLogAnalyticsWorkspace) { $configureArgs.ConnectLogAnalyticsWorkspace = $ConnectLogAnalyticsWorkspace }
+
         Assert-LabSubscription
-        & $configureScript -ResourceGroupName $ResourceGroupName
+        & $configureScript @configureArgs
         if ($LASTEXITCODE -ne 0) {
             Write-Host '  Some configuration steps failed (often RBAC propagation). Retrying in 90s...' -ForegroundColor Yellow
             Start-Sleep -Seconds 90
             Assert-LabSubscription
-            & $configureScript -ResourceGroupName $ResourceGroupName
+            & $configureScript @configureArgs
         }
         if ($LASTEXITCODE -ne 0) {
             $failures.Add('SRE Agent configuration failed')
@@ -488,6 +500,22 @@ if ($failures.Count -gt 0) {
 Write-Host "`n  Reminders:" -ForegroundColor White
 Write-Host '    - Container Insights telemetry takes ~5 minutes to repopulate.' -ForegroundColor Gray
 Write-Host '    - Re-authorize the Outlook connector in the portal for email delivery.' -ForegroundColor Gray
+
+# Suspend deletes the agent, so anything configured by hand in the portal is gone.
+# Surface that explicitly rather than letting it be discovered mid-demo.
+if (-not $ConnectCodeRepoUrl -or -not $ConnectLogAnalyticsWorkspace) {
+    Write-Host "`n  Portal configuration was NOT restored:" -ForegroundColor Yellow
+    if (-not $ConnectCodeRepoUrl) {
+        Write-Host '    - Code repository (Builder > Code Access)' -ForegroundColor Yellow
+    }
+    if (-not $ConnectLogAnalyticsWorkspace) {
+        Write-Host '    - Log Analytics connector (Settings > Connectors)' -ForegroundColor Yellow
+    }
+    Write-Host '    - VNet integration, if you use it (Settings > Workspace configuration > Network)' -ForegroundColor Yellow
+    Write-Host '    Automate the first two next time:' -ForegroundColor Gray
+    Write-Host "      pwsh ./scripts/resume-lab.ps1 -ResourceGroupName $ResourceGroupName -ConnectCodeRepoUrl 'owner/repo' -ConnectLogAnalyticsWorkspace 'log-<workload>'" -ForegroundColor Cyan
+}
+
 Write-Host "`n  Verify with:" -ForegroundColor White
 Write-Host "    pwsh ./scripts/validate-deployment.ps1 -ResourceGroupName $ResourceGroupName" -ForegroundColor Cyan
 Write-Host "`n  Suspend again with:" -ForegroundColor White

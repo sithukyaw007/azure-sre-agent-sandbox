@@ -72,7 +72,15 @@ param(
     [switch]$RemoveMicrosoftLearnMcp,
 
     [Parameter()]
-    [switch]$SkipScheduledTasks
+    [switch]$SkipScheduledTasks,
+
+    # Restores configuration that is normally set by hand in the portal and is lost
+    # whenever the agent is deleted (which suspend-lab.ps1 does on every cycle).
+    [Parameter()]
+    [string]$ConnectCodeRepoUrl = '',
+
+    [Parameter()]
+    [string]$ConnectLogAnalyticsWorkspace = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -587,6 +595,92 @@ if (-not $SkipConnectors) {
 }
 else {
     Write-Host "`n🔌 Step 3: Skipping connector creation (-SkipConnectors)" -ForegroundColor Gray
+}
+
+# ============================================================================
+# Step 3d: Restore portal-configured items
+# ============================================================================
+# The agent is deleted on every suspend cycle, which also discards anything that
+# was wired up by hand in the portal. These two are restorable through the
+# dataplane API, so they can be reapplied automatically instead of becoming a
+# manual checklist after every resume.
+if ($ConnectCodeRepoUrl -or $ConnectLogAnalyticsWorkspace) {
+    Write-Host "`n🔗 Step 3d: Restoring portal-configured items..." -ForegroundColor Yellow
+    $token = Get-SreAgentToken
+
+    if ($ConnectCodeRepoUrl) {
+        # Accepts https://github.com/owner/repo or owner/repo.
+        $repoUrl = $ConnectCodeRepoUrl
+        if ($repoUrl -notmatch '^https?://') { $repoUrl = "https://github.com/$repoUrl" }
+        $repoName = ($repoUrl.TrimEnd('/') -split '/')[-1]
+
+        Write-Host "  📦 Connecting code repository '$repoName'..." -ForegroundColor Gray
+        $repoBody = @{
+            name       = $repoName
+            type       = 'CodeRepo'
+            properties = @{
+                url  = $repoUrl
+                type = 'GitHub'
+            }
+        } | ConvertTo-Json -Depth 5 -Compress
+
+        $resp = Invoke-DataplaneApi `
+            -Method PUT `
+            -Path "/api/v2/extendedAgent/repositories/$repoName" `
+            -Body $repoBody `
+            -Token $token
+
+        if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 300) {
+            Write-Host "    ✅ Repository connected: $repoUrl" -ForegroundColor Green
+        }
+        else {
+            Add-ConfigurationFailure -Component "Code repository/$repoName" -Reason "HTTP $($resp.StatusCode)"
+            Write-Host "       Add it in the portal: Builder → Code Access → Add repository" -ForegroundColor Gray
+        }
+    }
+
+    if ($ConnectLogAnalyticsWorkspace) {
+        # Accepts a full workspace resource ID or a bare workspace name in this
+        # resource group.
+        $workspaceId = $ConnectLogAnalyticsWorkspace
+        if ($workspaceId -notmatch '^/subscriptions/') {
+            $workspaceId = az monitor log-analytics workspace show `
+                --resource-group $ResourceGroupName `
+                --workspace-name $ConnectLogAnalyticsWorkspace `
+                --query id --output tsv 2>$null
+        }
+
+        if ([string]::IsNullOrWhiteSpace($workspaceId)) {
+            Add-ConfigurationFailure -Component 'Log Analytics connector' -Reason "Could not resolve workspace '$ConnectLogAnalyticsWorkspace'"
+        }
+        else {
+            $connectorName = ($workspaceId -split '/')[-1]
+            Write-Host "  📊 Creating Log Analytics connector '$connectorName'..." -ForegroundColor Gray
+
+            # dataSource is required by the API; the workspace resource ID is the target.
+            $laBody = @{
+                name       = $connectorName
+                properties = @{
+                    dataConnectorType = 'LogAnalytics'
+                    dataSource        = $workspaceId
+                }
+            } | ConvertTo-Json -Depth 5 -Compress
+
+            $resp = Invoke-DataplaneApi `
+                -Method PUT `
+                -Path "/api/v2/extendedAgent/connectors/$connectorName" `
+                -Body $laBody `
+                -Token $token
+
+            if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 300) {
+                Write-Host "    ✅ Log Analytics connector created: $connectorName" -ForegroundColor Green
+                Write-Host "    📌 Spot-check the workspace binding in the portal; the API does not return it." -ForegroundColor Gray
+            }
+            else {
+                Add-ConfigurationFailure -Component "Log Analytics connector/$connectorName" -Reason "HTTP $($resp.StatusCode)"
+            }
+        }
+    }
 }
 
 # ============================================================================
