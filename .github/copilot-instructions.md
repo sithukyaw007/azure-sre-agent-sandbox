@@ -131,7 +131,7 @@ kubectl apply -f k8s/base/application.yaml
 ## Important Constraints
 
 1. **SRE Agent Regions**: Only deploy to eastus2, swedencentral, or australiaeast
-2. **AKS Networking**: Must NOT be private cluster for SRE Agent access
+2. **AKS Networking**: This lab keeps the API server public so kubectl works from a laptop. Private clusters are supported via SRE Agent VNet integration (GA) using a delegated subnet.
 3. **Authentication**: Use device code auth in dev containers (`az login --use-device-code`)
 4. **RBAC**: Some role assignments may fail due to subscription policies - use scripts
 5. **No SAS Tokens**: Use Workload Identity instead of connection strings where possible

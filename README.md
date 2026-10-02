@@ -285,6 +285,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 **⚠️ Important Notes:**
 
 - SRE Agent is currently in **Preview**
-- Only available in **East US 2**, **Sweden Central**, and **Australia East**
-- AKS cluster must **NOT** be a private cluster for SRE Agent to access
+- Available in many regions, including **East US 2**, **Sweden Central**, **Australia East**, and **Southeast Asia**. Check the current list with:
+  `az provider show -n Microsoft.App --query "resourceTypes[?resourceType=='agents'].locations"`
+- This lab keeps the AKS API server **public** so `kubectl` works from a laptop during demos. Private clusters are also supported via VNet integration (GA) — connect the agent to a delegated subnet so it can reach the API server privately.
 - Firewall must allow `*.azuresre.ai`

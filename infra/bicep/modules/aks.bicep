@@ -81,9 +81,16 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
       dnsServiceIP: '10.1.0.10'
     }
 
-    // API server access - Enable public access for SRE Agent
+    // API server access
+    // Public access keeps the lab simple: kubectl works from a laptop without extra
+    // networking, which matters during a live demo.
+    //
+    // A private cluster is also supported. Since VNet integration went GA, an agent
+    // in Azure VNet mode can reach AKS API servers behind private endpoints. Making
+    // this cluster private would require private DNS resolution for any out-of-cluster
+    // client, so it is deliberately left public here.
     apiServerAccessProfile: {
-      enablePrivateCluster: false // IMPORTANT: Must be false for SRE Agent
+      enablePrivateCluster: false
     }
 
     // System node pool

@@ -35,6 +35,9 @@ param deployAlerts bool = true
 @description('Deploy Azure SRE Agent for AI-powered diagnostics and remediation')
 param deploySreAgent bool = true
 
+@description('Create the dedicated subnet used for SRE Agent VNet integration. The subnet is created delegated to Microsoft.App/environments; connecting the agent to it is a portal step (Settings > Workspace configuration > Network).')
+param deploySreAgentSubnet bool = true
+
 @description('Deploy default Action Group for alert notifications and incident routing')
 param deployActionGroup bool = true
 
@@ -166,6 +169,8 @@ module network 'modules/network.bicep' = {
     addressPrefix: '10.20.0.0/16'
     aksSubnetPrefix: '10.20.0.0/22'
     servicesSubnetPrefix: '10.20.4.0/24'
+    sreAgentSubnetPrefix: '10.20.5.0/27'
+    deploySreAgentSubnet: deploySreAgentSubnet
   }
 }
 
@@ -307,3 +312,5 @@ output sreAgentPortalUrl string = deploySreAgent ? sreAgent!.outputs.agentPortal
 output sreAgentName string = deploySreAgent ? sreAgent!.outputs.agentName : ''
 output sreAgentManagedIdentityId string = deploySreAgent ? sreAgent!.outputs.managedIdentityId : ''
 output sreAgentManagedIdentityPrincipalId string = deploySreAgent ? sreAgent!.outputs.managedIdentityPrincipalId : ''
+output sreAgentSubnetId string = network.outputs.sreAgentSubnetId
+output sreAgentSubnetName string = network.outputs.sreAgentSubnetName
