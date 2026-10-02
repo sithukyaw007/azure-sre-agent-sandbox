@@ -3,7 +3,7 @@
 // =============================================================================
 // Deploys an Azure SRE Agent with managed identity and role assignments.
 // Based on: https://github.com/microsoft/sre-agent/tree/main/samples/bicep-deployment
-// Resource type: Microsoft.App/agents@2025-05-01-preview
+// Resource type: Microsoft.App/agents@2026-01-01
 // =============================================================================
 
 @description('Name of the SRE Agent')
@@ -30,6 +30,13 @@ param uniqueSuffix string
 
 @description('Resource IDs to add to SRE Agent knowledge graph (e.g. AKS cluster)')
 param managedResourceIds array = []
+
+@description('Agent upgrade channel. Preview is required for public-preview capabilities such as Live Reports; Stable lags behind.')
+@allowed([
+  'Preview'
+  'Stable'
+])
+param upgradeChannel string = 'Preview'
 
 // =============================================================================
 // VARIABLES
@@ -78,8 +85,10 @@ resource roleAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 ]
 
 // SRE Agent
-#disable-next-line BCP081
-resource sreAgent 'Microsoft.App/agents@2025-05-01-preview' = {
+// 2026-01-01 is the GA API version. It exposes upgradeChannel, which gates access to
+// public-preview capabilities such as Live Reports. Verified against a live agent:
+// agentIdentity is optional, so moving off the preview API version is safe here.
+resource sreAgent 'Microsoft.App/agents@2026-01-01' = {
   name: agentName
   location: location
   tags: tags
@@ -90,6 +99,7 @@ resource sreAgent 'Microsoft.App/agents@2025-05-01-preview' = {
     }
   }
   properties: {
+    upgradeChannel: upgradeChannel
     knowledgeGraphConfiguration: {
       identity: managedIdentity.id
       managedResources: managedResourceIds
