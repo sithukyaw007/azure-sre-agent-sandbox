@@ -414,7 +414,7 @@ To add your own runbooks:
 
 **Cause:** AKS cluster has restricted inbound network access
 
-**Solution:** Ensure the cluster is not a fully private cluster. SRE Agent needs network access to query Kubernetes objects.
+**Solution:** Either keep the cluster's API server publicly reachable, or — now that VNet integration is generally available — connect the agent to a delegated subnet in your VNet (Settings > Workspace configuration > Network) so it can reach API servers behind private endpoints. A private cluster with no network path from the agent will fail.
 
 ### Permission Errors
 
